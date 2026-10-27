@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Une grande nouvelle…</title>
+<meta name="description" content="Un petit jeu de 5 minutes pour découvrir une grande nouvelle.">
+<meta property="og:title" content="Une grande nouvelle… 🍼">
+<meta property="og:description" content="Un petit jeu de 5 minutes : joue jusqu’au bout pour la découvrir !">
+<meta property="og:image" content="https://francoisguitare.github.io/surprise/apercu.jpg">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#fff3e6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍼</text></svg>">
+<style>
+  :root {
+    --brun: #5a4636;
+    --creme: #fff3e6;
+    --or: #ffc94d;
+    --menthe: #c9f0d9;
+    --rose: #ff6fa3;
+    --police: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", "Trebuchet MS", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; background: var(--creme);
+    font-family: var(--police); color: var(--brun);
+    -webkit-tap-highlight-color: transparent; -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; overscroll-behavior: none;
+  }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  button { font-family: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: fixed; inset: 0; pointer-events: none; opacity: 0; transition: opacity .6s; }
+  #hud.visible { opacity: 1; }
+  #haut {
+    position: absolute; left: 0; right: 0; top: 0;
+    padding: calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) 0 calc(12px + env(safe-area-inset-left));
+    display: flex; align-items: center; gap: 8px;
+  }
+  #etapes { display: flex; gap: 6px; }
+  .etape {
+    width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 19px; background: rgba(255,255,255,.75); box-shadow: 0 2px 8px rgba(90,70,54,.15);
+    filter: grayscale(1); opacity: .55; transition: all .4s;
+  }
+  .etape.encours { filter: none; opacity: 1; box-shadow: 0 0 0 3px var(--or), 0 2px 8px rgba(90,70,54,.2); animation: pouls 1.6s infinite; }
+  .etape.fait { filter: none; opacity: 1; background: var(--menthe); }
+  @keyframes pouls { 50% { transform: scale(1.08); } }
+  #espace { flex: 1; }
+  .rond {
+    pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: none;
+    background: rgba(255,255,255,.85); font-size: 20px; box-shadow: 0 2px 8px rgba(90,70,54,.18);
+  }
+  .rond:active { transform: scale(.92); }
+  #objectif {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: calc(58px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.92); padding: 9px 18px; border-radius: 22px;
+    font-size: 17px; font-weight: 700; text-align: center; max-width: 92vw; width: max-content;
+    box-shadow: 0 3px 12px rgba(90,70,54,.15); transition: transform .3s;
+  }
+  #objectif.change { animation: saute .5s; }
+  @keyframes saute { 40% { transform: translateX(-50%) scale(1.1); } }
+  #toast {
+    position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translate(-50%, 10px);
+    background: rgba(90,70,54,.92); color: #fff; padding: 13px 22px; border-radius: 20px;
+    font-size: 19px; font-weight: 700; text-align: center; max-width: 86vw; width: max-content;
+    opacity: 0; transition: opacity .3s, transform .3s; line-height: 1.3;
+  }
+  #toast.visible { opacity: 1; transform: translate(-50%, 0); }
+  #aide {
+    position: absolute; left: 50%; bottom: calc(26px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: rgba(255,255,255,.93); padding: 12px 20px; border-radius: 22px; font-size: 18px; font-weight: 700;
+    box-shadow: 0 3px 12px rgba(90,70,54,.18); display: flex; align-items: center; gap: 10px;
+    opacity: 0; transition: opacity .5s; width: max-content; max-width: 92vw;
+  }
+  #aide.visible { opacity: 1; }
+  #aide .main { font-size: 30px; display: inline-block; animation: tape 1.4s infinite; }
+  #aide.glisse .main { animation: glisse 1.6s infinite; }
+  @keyframes tape { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } 55% { transform: translateY(2px) scale(.9); } }
+  @keyframes glisse { 0%,100% { transform: translateX(-14px); } 50% { transform: translateX(14px); } }
+
+  /* ---------- fenêtres ---------- */
+  .modal {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    padding: calc(12px + env(safe-area-inset-top)) 14px calc(12px + env(safe-area-inset-bottom));
+    background: rgba(90,60,40,.28); z-index: 10;
+  }
+  .modal.visible { display: flex; animation: apparait .35s; }
+  @keyframes apparait { from { opacity: 0; } }
+  .carte {
+    position: relative; background: rgba(255,255,255,.96); border-radius: 28px; padding: 22px 22px 20px;
+    max-width: 440px; width: 100%; max-height: 100%; overflow: auto; text-align: center;
+    box-shadow: 0 12px 40px rgba(90,60,40,.25); animation: monte .45s cubic-bezier(.2,1.4,.4,1);
+  }
+  @keyframes monte { from { transform: translateY(30px) scale(.94); } }
+  .carte h1 { margin: 4px 0 8px; font-size: clamp(28px, 8vw, 40px); line-height: 1.05; }
+  .carte h2 { margin: 2px 0 6px; font-size: 26px; }
+  .carte p { margin: 6px 0; font-size: 18px; line-height: 1.35; }
+  .gros {
+    border: none; border-radius: 999px; padding: 16px 34px; margin-top: 10px;
+    font-size: 23px; font-weight: 800; color: #5a3b14;
+    background: linear-gradient(#ffdc7d, #ffb84d); box-shadow: 0 5px 0 #e09a2e, 0 8px 18px rgba(224,154,46,.35);
+  }
+  .gros:active { transform: translateY(3px); box-shadow: 0 2px 0 #e09a2e; }
+  .fermer { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; border: none; background: #f4ebe2; font-size: 20px; }
+  .lien { border: none; background: none; font-size: 17px; text-decoration: underline; margin-top: 10px; opacity: .8; }
+
+  #titre { background: rgba(255,240,225,.45); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+  #titre .bebe { font-size: 54px; animation: berce 2.6s ease-in-out infinite; display: inline-block; }
+  @keyframes berce { 0%,100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
+  .regles { list-style: none; padding: 0; margin: 14px 0 6px; display: grid; gap: 8px; text-align: left; }
+  .regles li { background: #fff6e8; border-radius: 16px; padding: 9px 14px; font-size: 17px; font-weight: 600; display: flex; gap: 12px; align-items: center; }
+  .regles b { font-size: 26px; width: 32px; text-align: center; }
+  .petitson { font-size: 15px !important; opacity: .75; }
+  #chargement { font-size: 16px; opacity: .7; }
+
+  /* cadenas */
+  .roues { display: flex; justify-content: center; gap: 12px; margin: 14px 0 6px; }
+  .roue { display: flex; flex-direction: column; align-items: center; gap: 6px; background: #fff6e8; border-radius: 20px; padding: 10px 8px; width: 86px; }
+  .roue .icone { font-size: 34px; }
+  .roue button { width: 64px; height: 46px; border: none; border-radius: 14px; background: #ffe7b0; font-size: 22px; }
+  .roue button:active { background: #ffd36b; }
+  .roue .chiffre { font-size: 44px; font-weight: 800; width: 64px; background: #fff; border-radius: 12px; border: 3px solid #f1dcc1; }
+  .secoue { animation: secoue .45s; }
+  @keyframes secoue { 20%,60% { transform: translateX(-10px); } 40%,80% { transform: translateX(10px); } }
+  #code-msg { min-height: 1.4em; font-weight: 700; }
+
+  /* pronostic */
+  .choix { display: flex; gap: 12px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .choix button { flex: 1; min-width: 130px; border: none; border-radius: 22px; padding: 18px 10px; font-size: 22px; font-weight: 800; }
+  #p-garcon { background: #cfe6ff; box-shadow: 0 5px 0 #9cc5f2; }
+  #p-fille { background: #ffd3e4; box-shadow: 0 5px 0 #f4a3c3; }
+  .choix button:active { transform: translateY(3px); box-shadow: none; }
+  .choix span { display: block; font-size: 40px; }
+
+  /* fin */
+  #fin { background: radial-gradient(circle at 50% 40%, rgba(255,182,213,.55), rgba(255,111,163,.35)); }
+  #fin .carte { background: rgba(255,255,255,.95); }
+  #fin h1 { font-size: clamp(36px, 11vw, 60px); color: #e94f8a; }
+  #fin h1 span { display: block; font-size: 1.25em; background: linear-gradient(90deg, #ff6fa3, #ff9ec4, #ff6fa3); -webkit-background-clip: text; background-clip: text; color: transparent; animation: brille 2s linear infinite; background-size: 200% 100%; }
+  @keyframes brille { to { background-position: -200% 0; } }
+  #fin .ligne { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  #fin .gros { font-size: 19px; padding: 14px 22px; }
+  #b-fete { background: linear-gradient(#ffd3e4, #ffa9c9); box-shadow: 0 5px 0 #e9799f; color: #7a2347; }
+  #fin-signature { font-style: italic; }
+  .bebe-fin { font-size: 52px; animation: berce 2.6s ease-in-out infinite; display: inline-block; }
+  #coeurs { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 11; }
+  #coeurs span { position: absolute; bottom: -60px; animation: envol linear forwards; }
+  @keyframes envol { to { transform: translateY(-120vh) rotate(25deg); opacity: .2; } }
+  #b-revoir { position: fixed; z-index: 9; display: none; pointer-events: auto;
+    right: calc(12px + env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom));
+    border: none; border-radius: 999px; padding: 12px 18px; font-size: 18px; font-weight: 800;
+    background: #ffd3e4; color: #7a2347; box-shadow: 0 4px 0 #e9799f; }
+
+  @media (max-height: 520px) and (orientation: landscape) {
+    .carte { padding: 14px 18px; max-width: 640px; }
+    .carte h1 { font-size: 28px; }
+    #titre .bebe { font-size: 34px; }
+    .regles { grid-template-columns: repeat(3, 1fr); }
+    .regles li { flex-direction: column; text-align: center; gap: 2px; font-size: 15px; }
+    .gros { padding: 12px 30px; font-size: 20px; margin-top: 4px; }
+    #objectif { top: calc(10px + env(safe-area-inset-top)); font-size: 15px; max-width: 52vw; }
+    .roue { flex-direction: row; flex-wrap: wrap; justify-content: center; width: auto; padding: 6px 8px; }
+    .roue .icone { font-size: 24px; flex-basis: 100%; text-align: center; }
+    .roue .chiffre { font-size: 30px; width: 52px; }
+    .roue button { height: 42px; width: 48px; }
+    .roues { margin: 6px 0; }
+    .carte h2 { font-size: 22px; margin: 0; }
+    #fin h1 { font-size: 34px; }
+    .bebe-fin { font-size: 32px; }
+    #toast { bottom: calc(70px + env(safe-area-inset-bottom)); }
+    #fin .carte p { font-size: 16px; margin: 3px 0; }
+  }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div id="hud">
+  <div id="haut">
+    <div id="etapes">
+      <div class="etape" title="Les biberons">🍼</div>
+      <div class="etape" title="Le cadenas">🔒</div>
+      <div class="etape" title="La berceuse">🎵</div>
+      <div class="etape" title="Le cadeau">🎁</div>
+    </div>
+    <div id="espace"></div>
+    <button class="rond" id="b-indice" aria-label="Un indice">💡</button>
+    <button class="rond" id="b-son" aria-label="Couper le son">🔊</button>
+  </div>
+  <div id="objectif"></div>
+  <div id="toast"></div>
+  <div id="aide"><span class="main">👆</span><span id="aide-texte"></span></div>
+</div>
+
+<div id="titre" class="modal visible">
+  <div class="carte">
+    <div class="bebe">🍼</div>
+    <h1>Une grande nouvelle…</h1>
+    <p>Fille ou garçon ? Un petit jeu de 5 minutes pour le découvrir !</p>
+    <ul class="regles">
+      <li><b>👆</b><span id="r1">Touche le sol pour marcher</span></li>
+      <li><b>✨</b><span id="r2">Touche ce qui brille</span></li>
+      <li><b>👉</b><span id="r3">Glisse le doigt pour regarder autour</span></li>
+    </ul>
+    <button id="b-jouer" class="gros">C’est parti !</button>
+    <p class="petitson">🔊 Monte le son, c’est encore mieux !</p>
+    <p id="chargement"></p>
+  </div>
+</div>
+
+<div id="m-code" class="modal">
+  <div class="carte">
+    <button class="fermer" data-ferme="m-code" aria-label="Fermer">✕</button>
+    <h2>🔒 Le cadenas</h2>
+    <p>Combien y en a-t-il dans la salle de jeux ?</p>
+    <div class="roues" id="roues"></div>
+    <p id="code-msg"></p>
+    <button id="b-ouvrir" class="gros">Ouvrir 🔓</button>
+  </div>
+</div>
+
+<div id="m-prono" class="modal">
+  <div class="carte">
+    <h2>🎁 Avant d’ouvrir…</h2>
+    <p>À ton avis, bébé est…</p>
+    <div class="choix">
+      <button id="p-garcon"><span>💙</span>un garçon</button>
+      <button id="p-fille"><span>💗</span>une fille</button>
+    </div>
+  </div>
+</div>
+
+<div id="fin" class="modal">
+  <div class="carte">
+    <div class="bebe-fin">👶🎀</div>
+    <p>La grande nouvelle…</p>
+    <h1>C’est une <span>fille !</span></h1>
+    <p id="fin-prono"></p>
+    <p id="fin-message"></p>
+    <p id="fin-signature"></p>
+    <div class="ligne">
+      <button id="b-partager" class="gros">💌 Partager le jeu</button>
+      <button id="b-fete" class="gros">🎉 Voir la fête</button>
+    </div>
+    <button id="b-rejouer" class="lien">↺ Rejouer depuis le début</button>
+  </div>
+</div>
+<button id="b-revoir">💗 La nouvelle</button>
+<div id="coeurs"></div>
+
+<script src="lib/three.min.js"></script>
+<script src="jeu.js"></script>
+</body>
+</html>
