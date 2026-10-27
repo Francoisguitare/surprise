@@ -1297,7 +1297,14 @@ function audioInit() {
   AC = new C();
   maitre = AC.createGain(); maitre.gain.value = muet ? 0 : 0.9;
   const comp = AC.createDynamicsCompressor(); maitre.connect(comp); comp.connect(AC.destination);
-  gMus = AC.createGain(); gMus.gain.value = 0; gMus.connect(maitre);
+  gMus = AC.createGain(); gMus.gain.value = 0;
+  // musique feutrée : filtre doux + petit écho pour l'espace
+  const filtre = AC.createBiquadFilter(); filtre.type = 'lowpass'; filtre.frequency.value = 1800; filtre.Q.value = 0.3;
+  const echo = AC.createDelay(1); echo.delayTime.value = 0.48;
+  const retour = AC.createGain(); retour.gain.value = 0.32;
+  const humide = AC.createGain(); humide.gain.value = 0.35;
+  gMus.connect(filtre); filtre.connect(maitre);
+  filtre.connect(echo); echo.connect(retour); retour.connect(echo); echo.connect(humide); humide.connect(maitre);
   bruitBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
   const d = bruitBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   const s = AC.createBufferSource(); s.buffer = AC.createBuffer(1, 1, 22050); s.connect(AC.destination); s.start(0);
@@ -1310,7 +1317,7 @@ function clochette(f, t, vol, dur, dest) {
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   const o = AC.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + dur + 0.05);
   const g2 = AC.createGain(); g2.connect(dest || maitre);
-  g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(vol * 0.3, t + 0.004); g2.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.3);
+  g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(vol * 0.15, t + 0.004); g2.gain.exponentialRampToValueAtTime(0.0001, t + dur * 0.3);
   const o2 = AC.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 3.01; o2.connect(g2); o2.start(t); o2.stop(t + dur * 0.3 + 0.05);
 }
 function souffle(t, dur, vol, type, f0, f1) {
@@ -1355,40 +1362,58 @@ function son(nom) {
     default: break;
   }
 }
-// musique de fond : « Ah ! vous dirai-je, maman » en boîte à musique (domaine public)
-const MELODIE = 'C5 C5 G5 G5 A5 A5 G5- F5 F5 E5 E5 D5 D5 C5- G5 G5 F5 F5 E5 E5 D5- G5 G5 F5 F5 E5 E5 D5- C5 C5 G5 G5 A5 A5 G5- F5 F5 E5 E5 D5 D5 C5-'.split(' ');
-const BASSES = 'C3 C3 F3 C3 F3 C3 G3 C3 C3 F3 C3 G3 C3 F3 C3 G3 C3 C3 F3 C3 F3 C3 G3 C3'.split(' ');
-const PARTITION = (() => {
-  const ev = []; let b = 0;
-  MELODIE.forEach((n) => { const long = n.endsWith('-'); ev.push({ b, f: NOTES[n.replace('-', '')], v: 0.08, d: long ? 2.2 : 1.4 }); b += long ? 2 : 1; });
-  BASSES.forEach((n, i) => ev.push({ b: i * 2, f: NOTES[n] * 2, v: 0.05, d: 2.4 }));
-  ev.sort((a, c) => a.b - c.b);
-  return { ev, longueur: b + 4 };
-})();
-const mus = { on: false, debut: 0, i: 0, tempo: 0.55 };
+// musique de fond : nappes d'accords lentes et quelques notes de boîte à musique au hasard,
+// très espacées (rien qui tourne en boucle)
+const F = (n) => 440 * Math.pow(2, n / 12);   // n = demi-tons depuis La 440
+const ACCORDS = [
+  { nappe: [-21, -17, -14, -10], notes: [3, 7, 10, 14, 15] },    // Do maj7
+  { nappe: [-24, -21, -17, -14], notes: [0, 3, 7, 12, 15] },     // La m7
+  { nappe: [-28, -24, -21, -17], notes: [-4, 0, 3, 8, 12] },     // Fa maj7
+  { nappe: [-26, -22, -19, -17], notes: [-2, 2, 5, 7, 10] },     // Sol 6
+];
+const mus = { on: false, prochain: 0, i: 0, duree: 8, joyeuse: false };
+function nappe(f, t, dur, vol) {
+  const g = AC.createGain(); g.connect(gMus);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 2.5);
+  g.gain.setValueAtTime(vol, t + dur - 2.5); g.gain.linearRampToValueAtTime(0.0001, t + dur + 1.5);
+  for (const [type, desacc, v] of [['sine', 0, 1], ['triangle', 4, 0.35]]) {
+    const o = AC.createOscillator(); o.type = type; o.frequency.value = f; o.detune.value = desacc;
+    const gv = AC.createGain(); gv.gain.value = v; o.connect(gv); gv.connect(g);
+    o.start(t); o.stop(t + dur + 1.6);
+  }
+}
+function goutte(f, t, vol) {
+  const g = AC.createGain(); g.connect(gMus);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 3);
+  const o = AC.createOscillator(); o.type = 'sine'; o.frequency.value = f; o.connect(g); o.start(t); o.stop(t + 3.1);
+}
 function musique(on, delai, joyeuse) {
   if (!AC) { mus.on = on; return; }
   const t = AC.currentTime;
   gMus.gain.cancelScheduledValues(t); gMus.gain.setValueAtTime(gMus.gain.value, t);
   if (on) {
-    if (!mus.on) { mus.debut = t + (delai || 0.2); mus.i = 0; }
-    mus.on = true; mus.tempo = joyeuse ? 0.42 : 0.55;
-    gMus.gain.linearRampToValueAtTime(1, t + 1.5);
+    if (!mus.on) mus.prochain = t + (delai || 0.2);
+    mus.on = true; mus.joyeuse = !!joyeuse;
+    gMus.gain.linearRampToValueAtTime(1, t + 3);
   } else {
-    mus.on = false; gMus.gain.linearRampToValueAtTime(0, t + 0.4);
+    mus.on = false; gMus.gain.linearRampToValueAtTime(0, t + 0.8);
   }
 }
 function planifierMusique() {
   if (!AC || !mus.on || AC.state !== 'running') return;
   const now = AC.currentTime;
-  if (mus.debut < now - 1) { mus.debut = now + 0.1; mus.i = 0; }
-  while (true) {
-    const e = PARTITION.ev[mus.i];
-    const t = mus.debut + e.b * mus.tempo;
-    if (t > now + 0.7) break;
-    if (t >= now - 0.05) clochette(e.f, t, e.v, e.d, gMus);
-    mus.i++;
-    if (mus.i >= PARTITION.ev.length) { mus.i = 0; mus.debut += PARTITION.longueur * mus.tempo; }
+  if (mus.prochain < now - 1) mus.prochain = now + 0.1;
+  while (mus.prochain < now + 0.6) {
+    const t = mus.prochain, a = ACCORDS[mus.i % ACCORDS.length];
+    a.nappe.forEach((n, k) => nappe(F(n), t, mus.duree, k === 0 ? 0.03 : 0.018));
+    // une à trois notes douces, placées au hasard dans l'accord (parfois aucune)
+    const nb = Math.random() < 0.2 ? 0 : 1 + Math.floor(Math.random() * (mus.joyeuse ? 3 : 2));
+    let x = 1 + Math.random() * 2;
+    for (let k = 0; k < nb && x < mus.duree - 1; k++) {
+      goutte(F(a.notes[Math.floor(Math.random() * a.notes.length)]), t + x, 0.035);
+      x += 1.5 + Math.random() * 2.5;
+    }
+    mus.i++; mus.prochain += mus.duree;
   }
 }
 
