@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Une grande nouvelle…</title>
-<meta name="description" content="Un petit jeu de 5 minutes pour découvrir une grande nouvelle.">
-<meta property="og:title" content="Une grande nouvelle… 🍼">
-<meta property="og:description" content="Un petit jeu de 5 minutes : joue jusqu’au bout pour la découvrir !">
+<title>Surprise !</title>
+<meta name="description" content="Un petit jeu de quelques minutes… avec une surprise au bout.">
+<meta property="og:title" content="Surprise ! 🎁">
+<meta property="og:description" content="Un petit jeu de quelques minutes : joue jusqu’au bout pour la découvrir !">
 <meta property="og:image" content="https://francoisguitare.github.io/surprise/apercu.jpg">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#fff3e6">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍼</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎁</text></svg>">
 <style>
   :root {
     --brun: #5a4636;
@@ -41,8 +41,8 @@
   }
   #etapes { display: flex; gap: 6px; }
   .etape {
-    width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center;
-    font-size: 19px; background: rgba(255,255,255,.75); box-shadow: 0 2px 8px rgba(90,70,54,.15);
+    width: min(38px, 8.6vw); height: min(38px, 8.6vw); border-radius: 50%; display: grid; place-items: center;
+    font-size: min(19px, 4.4vw); font-weight: 800; background: rgba(255,255,255,.75); box-shadow: 0 2px 8px rgba(90,70,54,.15);
     filter: grayscale(1); opacity: .55; transition: all .4s;
   }
   .etape.encours { filter: none; opacity: 1; box-shadow: 0 0 0 3px var(--or), 0 2px 8px rgba(90,70,54,.2); animation: pouls 1.6s infinite; }
@@ -63,6 +63,7 @@
   }
   #objectif.change { animation: saute .5s; }
   @keyframes saute { 40% { transform: translateX(-50%) scale(1.1); } }
+  @keyframes saute2 { 40% { transform: scale(1.06); } }
   #toast {
     position: absolute; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); transform: translate(-50%, 10px);
     background: rgba(90,70,54,.92); color: #fff; padding: 13px 22px; border-radius: 20px;
@@ -128,6 +129,14 @@
   @keyframes secoue { 20%,60% { transform: translateX(-10px); } 40%,80% { transform: translateX(10px); } }
   #code-msg { min-height: 1.4em; font-weight: 700; }
 
+  /* tableau */
+  #puzzle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: min(100%, 340px, 50vh); aspect-ratio: 1; margin: 12px auto 4px; transition: gap .5s; }
+  .tuile { background-size: 200% 200%; border-radius: 12px; box-shadow: 0 2px 8px rgba(90,70,54,.2); transition: transform .15s, border-radius .5s; }
+  .tuile.choisie { outline: 5px solid var(--or); transform: scale(.93); }
+  #puzzle.fini { gap: 0; }
+  #puzzle.fini .tuile { border-radius: 0; box-shadow: none; }
+  #m-annonce h1 { color: #e0892e; }
+
   /* pronostic */
   .choix { display: flex; gap: 12px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
   .choix button { flex: 1; min-width: 130px; border: none; border-radius: 22px; padding: 18px 10px; font-size: 22px; font-weight: 800; }
@@ -162,7 +171,12 @@
     .regles { grid-template-columns: repeat(3, 1fr); }
     .regles li { flex-direction: column; text-align: center; gap: 2px; font-size: 15px; }
     .gros { padding: 12px 30px; font-size: 20px; margin-top: 4px; }
-    #objectif { top: calc(10px + env(safe-area-inset-top)); font-size: 15px; max-width: 52vw; }
+    .etape { width: 30px; height: 30px; font-size: 15px; }
+    #etapes { gap: 5px; }
+    #objectif { top: calc(10px + env(safe-area-inset-top)); font-size: 15px; transform: none; width: auto; max-width: none; padding: 7px 14px;
+      left: calc(232px + env(safe-area-inset-left)); right: calc(116px + env(safe-area-inset-right)); }
+    #objectif.change { animation: saute2 .5s; }
+    #puzzle { width: min(100%, 340px, 56vh); margin: 6px auto 2px; }
     .roue { flex-direction: row; flex-wrap: wrap; justify-content: center; width: auto; padding: 6px 8px; }
     .roue .icone { font-size: 24px; flex-basis: 100%; text-align: center; }
     .roue .chiffre { font-size: 30px; width: 52px; }
@@ -182,10 +196,8 @@
 <div id="hud">
   <div id="haut">
     <div id="etapes">
-      <div class="etape" title="Les biberons">🍼</div>
-      <div class="etape" title="Le cadenas">🔒</div>
-      <div class="etape" title="La berceuse">🎵</div>
-      <div class="etape" title="Le cadeau">🎁</div>
+      <div class="etape">?</div><div class="etape">?</div><div class="etape">?</div>
+      <div class="etape">?</div><div class="etape">?</div><div class="etape">?</div>
     </div>
     <div id="espace"></div>
     <button class="rond" id="b-indice" aria-label="Un indice">💡</button>
@@ -198,9 +210,9 @@
 
 <div id="titre" class="modal visible">
   <div class="carte">
-    <div class="bebe">🍼</div>
-    <h1>Une grande nouvelle…</h1>
-    <p>Fille ou garçon ? Un petit jeu de 5 minutes pour le découvrir !</p>
+    <div class="bebe">🎁</div>
+    <h1>Surprise !</h1>
+    <p id="titre-texte"></p>
     <ul class="regles">
       <li><b>👆</b><span id="r1">Touche le sol pour marcher</span></li>
       <li><b>✨</b><span id="r2">Touche ce qui brille</span></li>
@@ -209,6 +221,26 @@
     <button id="b-jouer" class="gros">C’est parti !</button>
     <p class="petitson">🔊 Monte le son, c’est encore mieux !</p>
     <p id="chargement"></p>
+  </div>
+</div>
+
+<div id="m-puzzle" class="modal">
+  <div class="carte">
+    <button class="fermer" data-ferme="m-puzzle" aria-label="Fermer">✕</button>
+    <h2>🧩 Le tableau</h2>
+    <p>Touche deux morceaux pour les échanger</p>
+    <div id="puzzle"></div>
+  </div>
+</div>
+
+<div id="m-annonce" class="modal">
+  <div class="carte">
+    <div class="bebe-fin">👶</div>
+    <p>Surprise !</p>
+    <h1 id="annonce-titre"></h1>
+    <p id="annonce-arrivee"></p>
+    <p>Mais… fille ou garçon ? 🤔</p>
+    <button id="b-suite" class="gros">Découvrir la suite ➜</button>
   </div>
 </div>
 

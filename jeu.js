@@ -1,10 +1,12 @@
 'use strict';
-/* Une grande nouvelle… — petit jeu 3D pour annoncer le sexe du bébé.
-   Quatre pièces : les biberons, le cadenas, la berceuse, le cadeau. */
+/* Surprise ! — petit jeu 3D pour annoncer une naissance, puis le sexe du bébé.
+   Le salon (les morceaux du tableau, le tableau : « ils vont être parents »),
+   puis quatre pièces : les biberons, le cadenas, la berceuse, le cadeau. */
 
 // ===================== À personnaliser =====================
 const CONFIG = {
-  signature: 'Les futurs parents',                 // signé en bas du message final
+  prenoms: ['Sylvie', 'Wissam'],                    // les futurs parents
+  signature: 'Sylvie et Wissam',                    // signé en bas du message final
   message: 'Nous avons tellement hâte de vous la présenter !',
   arrivee: '',                                      // ex. 'Arrivée prévue : mars 2027' (vide = rien)
   code: [2, 5, 3],                                  // nounours, canards, ballons de la salle de jeux
@@ -252,6 +254,7 @@ function texte(x, t, X, Y, taille, couleur) { x.font = `bold ${taille}px ${POLIC
 
 // ===================== Les pièces =====================
 const PIECES = [
+  { id: 'salon', x0: -4, x1: 4, zs: 13, zn: 7, tex: papier('#f6eee1', '#e6d8c2', 'pois', ['#ecdcc2', '#d6e3d3', '#f1d9c4']) },
   { id: 'chambre', x0: -4, x1: 4, zs: 4, zn: -4, tex: papier('#d9f1e5', '#bfe3d1', 'nuages', '#ffffff') },
   { id: 'jeux', x0: -4.5, x1: 4.5, zs: -7, zn: -16, tex: papier('#fff2c9', '#ffe29a', 'pois', ['#ffd36b', '#b9e6cf', '#ffc9a3']) },
   { id: 'musique', x0: -4, x1: 4, zs: -19, zn: -27, tex: papier('#ffe6d6', '#f9cdb0', 'notes', '#f4b48f') },
@@ -259,7 +262,7 @@ const PIECES = [
 ];
 const TEX_COULOIR = papier('#fdf6ec', '#eadbc6', 'rayures', '#f6ead8');
 // frontières (z) entre zones : pièce, couloir, pièce…
-const FRONT = [-4, -7, -16, -19, -27, -30];
+const FRONT = [7, 4, -4, -7, -16, -19, -27, -30];
 const zoneDe = (z) => FRONT.filter((b) => z < b).length;
 const texSol = texParquet();
 const matPlafond = new THREE.MeshBasicMaterial({ color: 0xf8f0e6 });
@@ -372,7 +375,126 @@ function ouvrir(p) {
   let t = 0;
   anims.push((dt) => { t += dt / 1.3; p.m.position.y = 1.3 + lisse(Math.min(t, 1)) * 3.4; return t < 1; });
 }
-const porteBloquee = (i) => (i === 0 && !portes.a.ouverte) || (i === 2 && !portes.b.ouverte) || (i === 4 && !portes.c.ouverte);
+const porteBloquee = (i) => (i === 0 && !portes.s.ouverte) || (i === 2 && !portes.a.ouverte) || (i === 4 && !portes.b.ouverte) || (i === 6 && !portes.c.ouverte);
+
+// ===================== Le salon : les morceaux du tableau, puis le tableau =====================
+let morceaux = 0;
+const MORCEAUX = [];
+let tableau, texTableau, imageTableau;
+function morceau(x, y, z, c, lieu) {
+  const g = groupe(x, y + 0.2, z);
+  boite(0.26, 0.26, 0.045, c, 0, 0, 0, g);
+  sphere(0.06, c, 0.15, 0, 0, g).scale.set(0.06, 0.06, 0.022);
+  sphere(0.06, c, 0, 0.15, 0, g).scale.set(0.06, 0.06, 0.022);
+  g.scale.setScalar(1.3); g.rotation.z = 0.2;
+  MORCEAUX.push({ g, lieu });
+  interactif(g, {
+    reach: 1.65, brille: () => etape === 'pieces' && g.visible, actif: () => g.visible,
+    use() {
+      if (g.userData.pris) return;
+      g.userData.pris = true; morceaux++; son('pop'); vibrer(30); envoler(g, 1.3); majObjectif(true);
+      if (morceaux < 4) toast(['Un morceau ! 🧩', 'Et de deux ! 🧩', 'Plus qu’un ! 🧩'][morceaux - 1]);
+      else plusTard(0.6, () => { toast('Tu les as tous !<br>Va reconstituer le tableau, à droite de la porte ✨', 4.5); son('bravo'); passerA('puzzle'); });
+    },
+  });
+}
+(function salon() {
+  // l'image du tableau
+  const [c, x] = toile(512, 512);
+  x.fillStyle = '#fff6e0'; x.fillRect(0, 0, 512, 512);
+  x.strokeStyle = '#f0d9a8'; x.lineWidth = 14; x.strokeRect(7, 7, 498, 498);
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  texte(x, CONFIG.prenoms.join(' + '), 256, 62, 50);
+  dCoeur(x, 256, 262, 150, '#ff8a65');
+  texte(x, '= 3 !', 256, 240, 104, '#ffffff');
+  texte(x, 'Bientôt…', 256, 462, 44, '#8a6a4e');
+  for (const [px, s] of [[84, -1], [428, 1]]) {   // petits pieds
+    x.fillStyle = '#f4b48f'; x.save(); x.translate(px, 440); x.rotate(s * 0.25);
+    x.beginPath(); x.ellipse(0, 10, 17, 26, 0, 0, 7); x.fill();
+    for (let k = 0; k < 4; k++) { x.beginPath(); x.arc(-15 + k * 10, -24 + Math.abs(k - 1.5) * 4, 5.5 - k * 0.5, 0, 7); x.fill(); }
+    x.restore();
+  }
+  imageTableau = c; texTableau = texture(c);
+  // le cadre vide, à droite de la porte
+  const [cv, xv] = toile(256, 256);
+  xv.fillStyle = '#f4ead9'; xv.fillRect(0, 0, 256, 256);
+  xv.strokeStyle = '#d9c8ab'; xv.lineWidth = 4; xv.setLineDash([12, 10]);
+  xv.beginPath(); xv.moveTo(128, 10); xv.lineTo(128, 246); xv.moveTo(10, 128); xv.lineTo(246, 128); xv.stroke();
+  xv.textAlign = 'center'; xv.textBaseline = 'middle'; texte(xv, '?', 128, 136, 130, '#d9c8ab');
+  const cx = 2.55, cy = 1.6, cz = 7.03;
+  boite(1.5, 1.5, 0.06, 0xc98f5a, cx, cy, cz);
+  tableau = new THREE.Mesh(new THREE.PlaneGeometry(1.3, 1.3), new THREE.MeshLambertMaterial({ map: texture(cv) }));
+  tableau.position.set(cx, cy, cz + 0.035); scene.add(tableau);
+  interactif(tableau, {
+    reach: 2.4, brille: () => etape === 'puzzle', actif: () => etape === 'pieces' || etape === 'puzzle',
+    use() {
+      if (etape === 'puzzle') ouvrirPuzzle();
+      else { toast(`Le tableau est en morceaux ! Retrouve-les d’abord (${morceaux}/4) 🧩`, 3); son('clic'); }
+    },
+  });
+  // panneau à gauche de la porte
+  const pan = panneau(1.3, 0.95, '#fff6e0', (xx, W, Hh) => {
+    texte(xx, 'Oh non !', W / 2, 62, 52);
+    texte(xx, 'Le tableau est tombé', W / 2, 150, 38, '#8a6a4e');
+    texte(xx, 'en 4 morceaux…', W / 2, 198, 38, '#8a6a4e');
+    texte(xx, 'Retrouve-les !', W / 2, Hh - 70, 46, '#e09a2e');
+  });
+  pan.position.set(-2.45, 1.6, 7.02); scene.add(pan);
+  // tapis
+  const tapis = new THREE.Mesh(new THREE.CircleGeometry(1.6, 40), new THREE.MeshLambertMaterial({ map: texTapis(['#e9d8bd', '#f6eee1', '#cfe0d2', '#f6eee1', '#f1cfb4']) }));
+  tapis.rotation.x = -Math.PI / 2; tapis.position.set(-1.3, 0.012, 10); tapis.userData.sol = true; scene.add(tapis);
+  // canapé (mur ouest)
+  const sx = -3.4, sz = 10, vert = 0x9fc4b3, vertF = 0x88b3a0;
+  boite(1.0, 0.42, 2.4, vert, sx, 0.21, sz); boite(0.25, 0.8, 2.4, vert, sx - 0.4, 0.75, sz);
+  boite(1.0, 0.62, 0.2, vertF, sx, 0.4, sz - 1.25); boite(1.0, 0.62, 0.2, vertF, sx, 0.4, sz + 1.25);
+  boite(0.5, 0.36, 0.14, 0xffd9a0, sx - 0.18, 0.62, sz + 0.75).rotation.set(0, 0.2, -0.3);
+  boite(0.5, 0.36, 0.14, 0xf4b48f, sx - 0.18, 0.62, sz - 0.2).rotation.set(0, -0.1, -0.3);
+  solide(sx - 0.6, sx + 0.55, sz - 1.4, sz + 1.4);
+  // table basse
+  const tx = -1.5, tz = 10.2;
+  boite(0.8, 0.05, 1.2, 0xc98f5a, tx, 0.42, tz);
+  for (const a of [-1, 1]) for (const b of [-1, 1]) boite(0.06, 0.4, 0.06, 0xb07a4f, tx + a * 0.33, 0.2, tz + b * 0.52);
+  cylindre(0.07, 0.1, 0xffffff, tx + 0.15, 0.5, tz + 0.35); boite(0.3, 0.04, 0.22, 0xf4b48f, tx - 0.1, 0.47, tz + 0.1).rotation.y = 0.3;
+  solide(tx - 0.42, tx + 0.42, tz - 0.62, tz + 0.62);
+  // bibliothèque (mur est)
+  const bx = 3.72, bz = 9.4;
+  boite(0.5, 2.0, 1.5, 0xf6eee2, bx, 1.0, bz);
+  for (let e = 0; e < 4; e++) {
+    boite(0.46, 0.04, 1.4, 0xe6d8c2, bx - 0.04, 0.3 + e * 0.5, bz);
+    if (e === 1) continue;   // une étagère libre pour le morceau
+    [0xf4b48f, 0x9fc4b3, 0xffd36b, 0xe6c49d, 0xb7c9a8, 0xf1cfb4, 0xd9c8ab].forEach((cc, k) => boite(0.26, 0.3 + (k * 7 % 3) * 0.04, 0.09, cc, bx - 0.14, 0.48 + e * 0.5 + (k * 7 % 3) * 0.02, bz - 0.55 + k * 0.13 + e * 0.05));
+  }
+  solide(bx - 0.3, bx + 0.3, bz - 0.8, bz + 0.8);
+  // plante
+  const px = 3.3, pz = 12.3;
+  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.19, 0.42, 18), mat(0xf4b48f)); pot.position.set(px, 0.21, pz); scene.add(pot);
+  sphere(0.36, 0x8fbf8f, px, 0.85, pz).scale.set(0.36, 0.46, 0.36); sphere(0.26, 0x7fb07f, px + 0.2, 1.15, pz - 0.1); sphere(0.24, 0x9fcf9f, px - 0.2, 1.1, pz + 0.12);
+  solide(px - 0.3, px + 0.3, pz - 0.3, pz + 0.3);
+  // lampadaire
+  const lx = -3.4, lz = 12.3;
+  cylindre(0.18, 0.04, 0xffffff, lx, 0.02, lz); cylindre(0.025, 1.5, 0xffffff, lx, 0.77, lz);
+  const abat = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.27, 0.3, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff1c6, side: THREE.DoubleSide }));
+  abat.position.set(lx, 1.6, lz); scene.add(abat);
+  solide(lx - 0.25, lx + 0.25, lz - 0.25, lz + 0.25);
+  // deux cadres aux murs
+  const c1 = panneau(1.2, 0.85, '#dfeee6', (xx, W, Hh) => {
+    xx.fillStyle = '#fff4c2'; xx.beginPath(); xx.arc(W - 120, 110, 44, 0, 7); xx.fill();
+    xx.fillStyle = '#a9cdb6'; xx.beginPath(); xx.moveTo(30, Hh - 40); xx.lineTo(200, 120); xx.lineTo(330, Hh - 40); xx.fill();
+    xx.fillStyle = '#8fbf9f'; xx.beginPath(); xx.moveTo(220, Hh - 40); xx.lineTo(360, 170); xx.lineTo(W - 30, Hh - 40); xx.fill();
+  });
+  c1.position.set(-3.98, 1.75, 10); c1.rotation.y = Math.PI / 2; scene.add(c1);
+  const c2 = panneau(0.9, 0.9, '#fff6e0', (xx, W, Hh) => {
+    dCoeur(xx, W / 2, Hh / 2 - 30, 110, '#ffb199');
+    texte(xx, CONFIG.prenoms.map((n) => n[0]).join(' & '), W / 2, Hh / 2 - 40, 110, '#ffffff');
+    texte(xx, CONFIG.prenoms.join(' & '), W / 2, Hh - 80, 50, '#8a6a4e');
+  });
+  c2.position.set(3.98, 1.7, 11.4); c2.rotation.y = -Math.PI / 2; scene.add(c2);
+  // les quatre morceaux
+  morceau(tx, 0.45, tz - 0.25, 0xffc94d, 'sur la table basse');
+  morceau(sx + 0.1, 0.42, sz - 0.7, 0xff9f6b, 'sur le canapé');
+  morceau(bx - 0.12, 0.82, bz, 0x7fc8a9, 'dans la bibliothèque');
+  morceau(2.3, 0.0, 12.2, 0xd9b25f, 'près de la plante (derrière toi au départ)');
+})();
 
 // ===================== Pièce 1 : la chambre (biberons) =====================
 let biberons = 0;
@@ -391,20 +513,23 @@ function biberon(x, y, z, lieu) {
   });
   return g;
 }
-function prendreBiberon(g) {
-  if (!g.visible || g.userData.pris) return;
-  g.userData.pris = true; biberons++;
-  son('pop'); vibrer(30);
+function envoler(g, ech) {
   let t = 0; const depart = g.position.clone();
   anims.push((dt) => {
     t += dt / 0.55;
     const cible = camera.position.clone().add(new THREE.Vector3(0, -0.3, 0));
     g.position.lerpVectors(depart, cible, lisse(Math.min(t, 1)));
     g.position.y += Math.sin(Math.min(t, 1) * Math.PI) * 0.4;
-    g.scale.setScalar(1.6 * (1 - Math.min(t, 1) * 0.8));
+    g.scale.setScalar(ech * (1 - Math.min(t, 1) * 0.8));
     g.rotation.y += dt * 8;
     if (t >= 1) { g.visible = false; return false; }
   });
+}
+function prendreBiberon(g) {
+  if (!g.visible || g.userData.pris) return;
+  g.userData.pris = true; biberons++;
+  son('pop'); vibrer(30);
+  envoler(g, 1.6);
   majObjectif(true);
   if (biberons < 3) toast(['Un biberon ! 🍼', 'Et de deux ! 🍼🍼'][biberons - 1]);
   else {
@@ -718,11 +843,12 @@ let banniere, texFille, matMurFete;
     const q = panneau(1.0, 1.0, s < 0 ? '#c9ecdb' : '#ffe7b0', (xx, W, Hh) => texte(xx, '?', W / 2, Hh / 2 + 10, 300, '#ffffff'));
     q.position.set(s * 5.98, 1.6, -36); q.rotation.y = -s * Math.PI / 2; scene.add(q);
   }
-  matMurFete = matMur(PIECES[3].tex);
+  matMurFete = matMur(PIECES[4].tex);
   plafonnier(-3, -33); plafonnier(3, -33); plafonnier(-3, -40); plafonnier(3, -40);
 })();
 
 // portes (après la construction des pièces)
+porte('s', 7, () => morceaux < 4 ? `Fermé ! Retrouve d’abord les 4 morceaux du tableau (${morceaux}/4) 🧩` : 'Fermé ! Reconstitue d’abord le tableau, à droite de la porte 🖼️');
 porte('a', -4, () => biberons < 3 ? `Fermé ! Bébé a faim : trouve d’abord les 3 biberons (${biberons}/3) 🍼` : 'La porte s’ouvre…');
 porte('b', -16, () => 'Fermé à clé ! Touche le cadenas jaune, à droite 🔒');
 porte('c', -27, () => 'Fermé ! Joue d’abord la berceuse 🎵');
@@ -774,7 +900,7 @@ function majConfettis(dt) {
 }
 
 // ===================== Joueur =====================
-const J = { x: 0, z: 2.6, yaw: 0, pitch: -0.1, chemin: [], cible: null, viseYaw: null, visePitch: null, pas: 0, bloqueT: 0, zone: 0 };
+const J = { x: 0, z: 11.8, yaw: 0, pitch: -0.1, chemin: [], cible: null, viseYaw: null, visePitch: null, pas: 0, bloqueT: 0, zone: 0 };
 const anims = [];
 const minuteurs = [];
 let temps = 0;
@@ -1012,8 +1138,12 @@ function marqueur(x, z) { rond.position.set(x, 0.03, z); rondT = 0; }
 
 // ===================== Étapes du jeu =====================
 let etape = 'titre';
-const ETAPES = ['biberons', 'code', 'musique', 'final'];
+const ICONES = ['🧩', '🖼️', '🍼', '🔒', '🎵', '🎁'];
 const OBJECTIFS = {
+  pieces: () => `Retrouve les 4 morceaux du tableau 🧩 <b>${morceaux}/4</b>`,
+  puzzle: () => 'Reconstitue le tableau 🖼️',
+  annonce: () => 'Surprise ! 🎉',
+  versChambre: () => 'La porte est ouverte : avance ! ➜',
   biberons: () => `Trouve les 3 biberons 🍼 <b>${biberons}/3</b>`,
   versJeux: () => 'La porte est ouverte : avance ! ➜',
   code: () => 'Trouve le code du cadenas 🔒',
@@ -1031,7 +1161,12 @@ function indice() {
       const restants = BIBERONS.filter((b) => b.g.visible).map((b) => b.lieu);
       return `Les biberons brillent ✨<br>Il en reste ${restants.length} : ${restants.join(', ')}.<br>Glisse le doigt pour regarder autour de toi !`;
     }
-    case 'versJeux': case 'versMusique': case 'versFete': return 'Touche le sol de l’autre côté de la porte ouverte pour avancer !';
+    case 'pieces': {
+      const restants = MORCEAUX.filter((m) => m.g.visible).map((m) => m.lieu);
+      return `Les morceaux brillent ✨<br>Il en reste ${restants.length} : ${restants.join(', ')}.<br>Glisse le doigt pour regarder autour de toi !`;
+    }
+    case 'puzzle': return 'Touche le cadre qui brille, à droite de la porte, puis échange les morceaux pour refaire l’image.';
+    case 'versChambre': case 'versJeux': case 'versMusique': case 'versFete': return 'Touche le sol de l’autre côté de la porte ouverte pour avancer !';
     case 'code':
       if (aideCode.erreurs >= 2) return `Psst… ${CONFIG.code[0]} nounours, ${CONFIG.code[1]} canards et ${CONFIG.code[2]} ballons !`;
       return 'Compte les nounours 🧸, les canards 🦆 (regarde dans la bassine !) et les ballons 🎈.<br>Puis touche le cadenas jaune à droite de la porte.';
@@ -1046,8 +1181,12 @@ function passerA(e) {
   etape = e; majObjectif(true); majEtapes();
 }
 function majEtapes() {
-  const idx = { biberons: 0, versJeux: 1, code: 1, versMusique: 2, musique: 2, versFete: 3, final: 3, revelation: 3, fin: 4 }[etape] ?? 0;
-  document.querySelectorAll('.etape').forEach((el, i) => { el.classList.toggle('fait', i < idx); el.classList.toggle('encours', i === idx); });
+  const idx = { pieces: 0, puzzle: 1, annonce: 1, versChambre: 2, biberons: 2, versJeux: 3, code: 3, versMusique: 4, musique: 4, versFete: 5, final: 5, revelation: 5, fin: 6 }[etape] ?? 0;
+  // les étapes à venir restent secrètes
+  document.querySelectorAll('.etape').forEach((el, i) => {
+    el.textContent = i <= idx ? ICONES[i] : '?';
+    el.classList.toggle('fait', i < idx); el.classList.toggle('encours', i === idx);
+  });
 }
 let objTexte = '';
 function majObjectif(anime) {
@@ -1060,10 +1199,58 @@ const visites = {};
 function entrerZone(z) {
   if (visites[z]) return;
   visites[z] = true;
-  if (z === 2 && etape === 'versJeux') { passerA('code'); toast('La salle de jeux 🧸<br>Il faut trouver le code du cadenas !', 4); son('ok'); }
-  if (z === 4 && etape === 'versMusique') { passerA('musique'); toast('La salle de musique 🎵<br>Écoute la boîte à musique…', 4); son('ok'); }
-  if (z === 6 && etape === 'versFete') { passerA('final'); toast('La grande salle 🎁<br>La réponse est dans le cadeau !', 4); son('ok'); }
+  if (z === 2 && etape === 'versChambre') { passerA('biberons'); toast('La chambre de bébé !<br>Bébé a faim : trouve les 3 biberons 🍼', 4.5); son('ok'); }
+  if (z === 4 && etape === 'versJeux') { passerA('code'); toast('La salle de jeux 🧸<br>Il faut trouver le code du cadenas !', 4); son('ok'); }
+  if (z === 6 && etape === 'versMusique') { passerA('musique'); toast('La salle de musique 🎵<br>Écoute la boîte à musique…', 4); son('ok'); }
+  if (z === 8 && etape === 'versFete') { passerA('final'); toast('La grande salle 🎁<br>La réponse est dans le cadeau !', 4); son('ok'); }
 }
+
+// ----- le tableau à reconstituer, puis l'annonce -----
+const ordrePuzzle = [3, 0, 1, 2];   // quelle tuile est à quelle place
+let tuileChoisie = null;
+function dessinerPuzzle() {
+  const z = $('puzzle'); z.innerHTML = '';
+  ordrePuzzle.forEach((k, place) => {
+    const d = document.createElement('div'); d.className = 'tuile' + (place === tuileChoisie ? ' choisie' : '');
+    d.style.backgroundImage = `url(${imageURL})`;
+    d.style.backgroundPosition = `${(k % 2) * 100}% ${Math.floor(k / 2) * 100}%`;
+    d.onclick = () => toucherTuile(place);
+    z.appendChild(d);
+  });
+}
+let imageURL = '';
+function ouvrirPuzzle() {
+  if (!imageURL) imageURL = imageTableau.toDataURL('image/jpeg', 0.85);
+  tuileChoisie = null; dessinerPuzzle(); ouvrirModal('m-puzzle');
+}
+function toucherTuile(place) {
+  if (etape !== 'puzzle') return;
+  if (tuileChoisie === null) { tuileChoisie = place; son('clic'); }
+  else if (tuileChoisie === place) tuileChoisie = null;
+  else {
+    [ordrePuzzle[tuileChoisie], ordrePuzzle[place]] = [ordrePuzzle[place], ordrePuzzle[tuileChoisie]];
+    tuileChoisie = null; son('pop');
+  }
+  dessinerPuzzle();
+  if (ordrePuzzle.every((k, i) => k === i)) {
+    etape = 'annonce'; majObjectif(true);
+    $('puzzle').classList.add('fini'); son('bravo'); vibrer([40, 40, 80]);
+    tableau.material.map = texTableau;
+    setTimeout(annoncer, 1500);
+  }
+}
+function annoncer() {
+  fermerModal('m-puzzle');
+  $('annonce-titre').textContent = `${CONFIG.prenoms.join(' et ')} vont être parents !`;
+  $('annonce-arrivee').textContent = CONFIG.arrivee;
+  ouvrirModal('m-annonce'); son('fanfare'); vibrer([80, 40, 160]);
+  pluieDeCoeurs(['🎉', '✨', '👶', '🍼', '🎊', '💛']);
+}
+$('b-suite').onclick = () => {
+  fermerModal('m-annonce'); son('clic');
+  ouvrir(portes.s); passerA('versChambre');
+  toast('Un bébé arrive ! 👶<br>Mais… fille ou garçon ? Continue pour le découvrir !', 5);
+};
 
 // ----- le cadenas -----
 const codeSaisi = [0, 0, 0];
@@ -1220,9 +1407,9 @@ function afficherFin() {
   ouvrirModal('fin');
   pluieDeCoeurs();
 }
-function pluieDeCoeurs() {
+function pluieDeCoeurs(em) {
   const zone = $('coeurs');
-  const em = ['💗', '💖', '🎀', '💕', '✨', '🎈'];
+  em = em || ['💗', '💖', '🎀', '💕', '✨', '🎈'];
   for (let i = 0; i < 26; i++) {
     const s = document.createElement('span');
     s.textContent = em[i % em.length];
@@ -1239,9 +1426,9 @@ $('b-revoir').onclick = () => { $('b-revoir').style.display = 'none'; ouvrirModa
 $('b-rejouer').onclick = () => location.reload();
 $('b-partager').onclick = async () => {
   const url = location.href.split('#')[0].split('?')[0];
-  const txt = 'Un petit jeu de 5 minutes pour découvrir une grande nouvelle… 🍼✨ Joue jusqu’au bout !';
+  const txt = `${CONFIG.prenoms.join(' et ')} ont une surprise pour toi 🎁✨ Un petit jeu de quelques minutes : joue jusqu’au bout !`;
   try {
-    if (navigator.share) { await navigator.share({ title: 'Une grande nouvelle…', text: txt, url }); return; }
+    if (navigator.share) { await navigator.share({ title: 'Surprise !', text: txt, url }); return; }
   } catch (_) { return; }
   window.open('https://wa.me/?text=' + encodeURIComponent(txt + ' ' + url), '_blank');
 };
@@ -1270,6 +1457,7 @@ function premierPas() {
 }
 function aGlisse() { if (aide.glisse) return; aide.glisse = true; if (aide.pas) cacherAide(); }
 
+$('titre-texte').textContent = `${CONFIG.prenoms.join(' et ')} ont quelque chose à t’annoncer… Un petit jeu de quelques minutes pour le découvrir !`;
 if (!TACTILE) {
   $('r1').textContent = 'Clique sur le sol pour marcher (ou flèches du clavier)';
   $('r2').textContent = 'Clique sur ce qui brille';
@@ -1281,9 +1469,9 @@ function commencer() {
   fermerModal('titre');
   $('hud').classList.add('visible');
   J.yaw = 0; J.pitch = -0.1;
-  passerA('biberons');
+  passerA('pieces');
   musique(true, 1.5);
-  plusTard(0.6, () => toast('Bienvenue dans la chambre de bébé !<br>Bébé a faim : trouve les 3 biberons 🍼', 4.5));
+  plusTard(0.6, () => toast(`Bienvenue chez ${CONFIG.prenoms.join(' et ')} !<br>Leur tableau est tombé : retrouve ses 4 morceaux 🧩`, 5));
   plusTard(1.2, () => { if (!aide.pas) montrerAide(TACTILE ? 'Touche le sol pour marcher' : 'Clique sur le sol pour marcher'); });
 }
 $('b-jouer').onclick = commencer;
@@ -1487,7 +1675,7 @@ if (DEBUG) {
     commencer, toucher, marcherVers, allerVers, utiliser, choisir, codeSaisi, toucherCube,
     infos() { return renderer.info.programs.length; },
     ecran(i) { const v = inters[i].pos.clone().project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; },
-    get biberons() { return biberons; },
+    get biberons() { return biberons; }, get morceaux() { return morceaux; }, toucherTuile, ordrePuzzle,
   };
   appliquerCamera(0); renderer.render(scene, camera);
 } else requestAnimationFrame(boucle);
