@@ -15,7 +15,7 @@ const CONFIG = {
 
 const DEBUG = /[?&]debug/.test(location.search);
 const TACTILE = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
-const H = 3, PORTE = 2.4, OEIL = 1.5, RAYON = 0.3, VITESSE = 2.4;
+const H = 3, PORTE = 2.4, OEIL = 1.5, RAYON = 0.3, VITESSE = 2.8;
 const POLICE = 'ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", "Nunito", "Trebuchet MS", sans-serif';
 const $ = (id) => document.getElementById(id);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -389,7 +389,7 @@ function morceau(x, y, z, c, lieu) {
   g.scale.setScalar(1.3); g.rotation.z = 0.2;
   MORCEAUX.push({ g, lieu });
   interactif(g, {
-    reach: 1.65, brille: () => etape === 'pieces' && g.visible, actif: () => g.visible,
+    reach: 1.65, auto: true, brille: () => etape === 'pieces' && g.visible, actif: () => g.visible,
     use() {
       if (g.userData.pris) return;
       g.userData.pris = true; morceaux++; son('pop'); vibrer(30); envoler(g, 1.3); majObjectif(true);
@@ -508,7 +508,7 @@ function biberon(x, y, z, lieu) {
   const t = sphere(0.04, 0xf3d9a4, 0, 0.27, 0, g); t.scale.set(0.035, 0.06, 0.035);
   BIBERONS.push({ g, lieu });
   interactif(g, {
-    reach: 1.7, brille: () => etape === 'biberons' && g.visible, actif: () => g.visible,
+    reach: 1.7, auto: true, brille: () => etape === 'biberons' && g.visible, actif: () => g.visible,
     use() { prendreBiberon(g); },
   });
   return g;
@@ -1003,6 +1003,28 @@ function regarder(pos, pitchMin) {
 }
 function angleVers(a, b, max) { let d = b - a; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return a + clamp(d, -max, max); }
 
+// manette tactile (en bas à gauche)
+const manette = { id: null, x: 0, y: 0 };
+(function brancherManette() {
+  const base = $('manette'), pouce = $('pouce');
+  if (TACTILE) document.body.classList.add('tactile');
+  const maj = (e) => {
+    const r = base.getBoundingClientRect(), R = r.width / 2 - 14;
+    let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d; }
+    manette.x = dx / R; manette.y = dy / R;
+    pouce.style.transform = `translate(${dx}px, ${dy}px)`;
+  };
+  const fin = (e) => { if (e.pointerId !== manette.id) return; manette.id = null; manette.x = manette.y = 0; pouce.style.transform = ''; base.classList.remove('active'); };
+  base.addEventListener('pointerdown', (e) => {
+    if (manette.id !== null) return;
+    audioInit(); manette.id = e.pointerId; base.classList.add('active');
+    try { base.setPointerCapture(e.pointerId); } catch (_) { /* rien */ }
+    maj(e); e.preventDefault();
+  });
+  base.addEventListener('pointermove', (e) => { if (e.pointerId === manette.id) maj(e); });
+  base.addEventListener('pointerup', fin); base.addEventListener('pointercancel', fin);
+})();
 const touches = {};
 window.addEventListener('keydown', (e) => { touches[e.code] = true; if (e.code.startsWith('Arrow')) e.preventDefault(); });
 window.addEventListener('keyup', (e) => { touches[e.code] = false; });
@@ -1017,11 +1039,18 @@ function deplacer(dt) {
   if (touches.KeyD) lat += 1;
   if (touches.ArrowLeft || touches.KeyQ && !touches.KeyA) tourne += 1;
   if (touches.ArrowRight || touches.KeyE) tourne -= 1;
+  // manette tactile : haut/bas pour avancer et reculer, gauche/droite pour tourner
+  if (manette.id !== null) {
+    const mort = (v) => (Math.abs(v) < 0.18 ? 0 : (v - Math.sign(v) * 0.18) / 0.82);
+    av += -mort(manette.y) * (manette.y > 0 ? 0.7 : 1);
+    tourne += -mort(manette.x) * 0.85;
+    if (J.visePitch === null && Math.abs(J.pitch + 0.1) > 0.25 && av) J.visePitch = -0.1;
+  }
   if (tourne) { J.yaw += tourne * 2.2 * dt; J.viseYaw = null; }
   const x0 = J.x, z0 = J.z;
   if (av || lat) {
     J.chemin = []; J.cible = null; premierPas();
-    const n = Math.hypot(av, lat), s = Math.sin(J.yaw), c = Math.cos(J.yaw);
+    const n = Math.max(1, Math.hypot(av, lat)), s = Math.sin(J.yaw), c = Math.cos(J.yaw);
     J.x += ((-s) * av + c * lat) / n * VITESSE * dt;
     J.z += ((-c) * av - s * lat) / n * VITESSE * dt;
   } else if (J.chemin.length) {
@@ -1048,6 +1077,10 @@ function deplacer(dt) {
     }
   }
   J.pas += bouge * 6.5;
+  // on ramasse tout seul ce qui brille quand on passe à côté
+  if (bouge > 0) for (const it of inters) {
+    if (it.auto && it.etincelle && it.etincelle.visible && dist2D(it.pos) < 1.15) { it.use(); break; }
+  }
   // zones
   const z = zoneDe(J.z);
   if (z !== J.zone) { J.zone = z; entrerZone(z); }
@@ -1458,6 +1491,7 @@ function premierPas() {
 function aGlisse() { if (aide.glisse) return; aide.glisse = true; if (aide.pas) cacherAide(); }
 
 $('titre-texte').textContent = `${CONFIG.prenoms.join(' et ')} ont quelque chose à t’annoncer… Un petit jeu de quelques minutes pour le découvrir !`;
+if (TACTILE) $('r1').textContent = 'Touche le sol pour marcher, ou utilise la manette ronde';
 if (!TACTILE) {
   $('r1').textContent = 'Clique sur le sol pour marcher (ou flèches du clavier)';
   $('r2').textContent = 'Clique sur ce qui brille';
@@ -1472,7 +1506,7 @@ function commencer() {
   passerA('pieces');
   musique(true, 1.5);
   plusTard(0.6, () => toast(`Bienvenue chez ${CONFIG.prenoms.join(' et ')} !<br>Leur tableau est tombé : retrouve ses 4 morceaux 🧩`, 5));
-  plusTard(1.2, () => { if (!aide.pas) montrerAide(TACTILE ? 'Touche le sol pour marcher' : 'Clique sur le sol pour marcher'); });
+  plusTard(1.2, () => { if (!aide.pas) montrerAide(TACTILE ? 'Touche le sol pour marcher, ou utilise la manette' : 'Clique sur le sol pour marcher'); });
 }
 $('b-jouer').onclick = commencer;
 
@@ -1675,7 +1709,7 @@ if (DEBUG) {
     commencer, toucher, marcherVers, allerVers, utiliser, choisir, codeSaisi, toucherCube,
     infos() { return renderer.info.programs.length; },
     ecran(i) { const v = inters[i].pos.clone().project(camera); return { x: (v.x + 1) / 2 * innerWidth, y: (1 - v.y) / 2 * innerHeight }; },
-    get biberons() { return biberons; }, get morceaux() { return morceaux; }, toucherTuile, ordrePuzzle,
+    manette, get biberons() { return biberons; }, get morceaux() { return morceaux; }, toucherTuile, ordrePuzzle,
   };
   appliquerCamera(0); renderer.render(scene, camera);
 } else requestAnimationFrame(boucle);

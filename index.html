@@ -83,6 +83,23 @@
   @keyframes tape { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-8px); } 55% { transform: translateY(2px) scale(.9); } }
   @keyframes glisse { 0%,100% { transform: translateX(-14px); } 50% { transform: translateX(14px); } }
 
+  /* manette tactile */
+  #manette {
+    display: none; position: absolute; pointer-events: auto; touch-action: none;
+    left: calc(16px + env(safe-area-inset-left)); bottom: calc(18px + env(safe-area-inset-bottom));
+    width: 128px; height: 128px; border-radius: 50%;
+    background: rgba(255,255,255,.38); border: 3px solid rgba(255,255,255,.8); box-shadow: 0 3px 14px rgba(90,70,54,.18);
+  }
+  body.tactile #manette { display: block; }
+  #pouce {
+    position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%;
+    background: rgba(255,255,255,.95); box-shadow: 0 3px 10px rgba(90,70,54,.3);
+    display: grid; place-items: center; font-size: 22px; color: #e09a2e; pointer-events: none;
+  }
+  #manette.active { background: rgba(255,220,125,.45); }
+  body.tactile #aide { bottom: calc(160px + env(safe-area-inset-bottom)); }
+  body.tactile #toast { bottom: calc(232px + env(safe-area-inset-bottom)); }
+
   /* ---------- fenêtres ---------- */
   .modal {
     position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
@@ -186,6 +203,9 @@
     #fin h1 { font-size: 34px; }
     .bebe-fin { font-size: 32px; }
     #toast { bottom: calc(70px + env(safe-area-inset-bottom)); }
+    #manette { width: 112px; height: 112px; }
+    body.tactile #aide { bottom: calc(22px + env(safe-area-inset-bottom)); max-width: calc(100vw - 330px); font-size: 16px; }
+    body.tactile #toast { bottom: calc(84px + env(safe-area-inset-bottom)); max-width: calc(100vw - 330px); font-size: 17px; }
     #fin .carte p { font-size: 16px; margin: 3px 0; }
   }
 </style>
@@ -205,6 +225,7 @@
   </div>
   <div id="objectif"></div>
   <div id="toast"></div>
+  <div id="manette"><div id="pouce">▲</div></div>
   <div id="aide"><span class="main">👆</span><span id="aide-texte"></span></div>
 </div>
 
